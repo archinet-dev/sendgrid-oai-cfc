@@ -1,5 +1,57 @@
 sendgrid-oai changelog
 ====================
+[2026-01-22] Version 1.0.0-rc.12
+--------------------------------
+**Ip provisioning**
+- Add IP Provisioning API specification
+
+
+[2025-11-06] Version 1.0.0-rc.11
+--------------------------------
+**Email activity**
+- Add notice that Email Activity is unavailable for EU subusers
+
+**Logs**
+- Fix formatting issues
+
+**Mail settings v3**
+- certain mail settings allow specific email addresses to always bypass suppressions.  This is stored in the US, so we need a warning for regional customers.
+
+**Mc designs v3**
+- the templates used in MC design are available to EU customers, but are stored in the US.  This notifies customers of this risk.
+
+**Stats v3**
+- A stat endpoint used by the parent to query the subusers will not work for regional.  This is reflected in the API docs.
+
+**Subusers v3**
+- SEQ scores will currently not work correctly for EU subusers.  This notification is in the docs.
+
+
+[2025-10-31] Version 1.0.0-rc.10
+--------------------------------
+**Logs**
+- Add Email Logs API
+
+
+[2025-10-28] Version 1.0.0-rc.9
+-------------------------------
+**Recipients data erasure**
+- Add rate limit documentation for the recipients' data erasure endpoint (100 requests per minute)
+- Add guidance to use batch processing for higher volume data erasure requests
+
+
+[2025-09-25] Version 1.0.0-rc.8
+-------------------------------
+**Domain authentication**
+- Correct misspelling of validation_results
+
+**Ip address management v3**
+- Remove EU URL from endpoints only callable by parent users
+
+**Ips v3**
+- Remove mention of subusers from endpoint only called by parent users.
+
+
 [2025-08-18] Version 1.0.0-rc.7
 -------------------------------
 **Email activity**
