@@ -1,35 +1,49 @@
-component  displayname="SendMail" hint="CFC for Working SendGrid and Sending Mail" output="true" {
+component displayname="SendGrid" hint="CFC for sending email via SendGrid v3 Mail API" output="false" {
+    
     /**
-     * Send an email using SendGrid API
+     * Send an email using SendGrid v3 Mail API
      * 
-     * @toEmail       [string]  - Email address to send to
-     * @toName        [string]  - Name of recipient
-     * @fromEmail     [string]  - Email address to send from
-     * @fromName      [string]  - Name of sender
-     * @ccEmail       [string]  - Email address to send to
-     * @ccName        [string]  - Name of recipient
-     * @bccEmail      [string]  - Email address to send to
-     * @bccName       [string]  - Name of recipient
-     * @subject       [string]  - Email subject
-     * @message       [string]  - Email message
-     * @htmlMessage   [string]  - HTML Email message
+     * @mailData      [struct]  - Complete mail data structure following SendGrid v3 API spec
+     * 
+     * Example mailData structure:
+     * {
+     *   "personalizations": [{
+     *     "to": [{"email": "recipient@example.com", "name": "Recipient Name"}],
+     *     "cc": [{"email": "cc@example.com", "name": "CC Name"}],
+     *     "bcc": [{"email": "bcc@example.com", "name": "BCC Name"}],
+     *     "subject": "Email Subject"
+     *   }],
+     *   "from": {"email": "sender@example.com", "name": "Sender Name"},
+     *   "reply_to": {"email": "reply@example.com", "name": "Reply Name"},
+     *   "content": [
+     *     {"type": "text/plain", "value": "Plain text content"},
+     *     {"type": "text/html", "value": "<p>HTML content</p>"}
+     *   ]
+     * }
      */
-    remote struct function sendEmail(required email toEmail="bryan@archinet.net", string toName="Archinet User", required email fromEmail="notifications@archinet.net", string fromName="Archinet Notifications Team", email ccEmail="bryan@archinet.net", string ccName="Archinet Notifications Team", email bccEmail="notifications@archinet.net", string bccName="", required string subject="Archinet Email Notification", required string message="You have received this email because you are testing the SendMail.cfc sendEmail() function.", string htmlMessage="<strong>Testing HTML Email using sendgrid api with cURL. Test Link: <a href='https://projects.archinet.net'>Archinet</a></strong>") output="false" returnformat="json" {
-        var errorResponse = {};
-
-        //cfparam(name="arguments.toEmail", type="email", default="bryan@archinet.net");
-
+    public struct function sendMail(required struct mailData) output="false" {
         try {
-          var sendGridAPIKey = server.system.environment.sendgrid_api_key;
+            // Get SendGrid API key from environment variable
+            var sendGridAPIKey = "";
+            if (structKeyExists(server, "system") && structKeyExists(server.system, "environment") && structKeyExists(server.system.environment, "sendgrid_api_key")) {
+                sendGridAPIKey = server.system.environment.sendgrid_api_key;
+            } else {
+                throw(type="SendGrid.MissingAPIKey", message="SendGrid API key not found in server.system.environment.sendgrid_api_key");
+            }
             
-            /*
-            curl --request POST \
-            --url https://api.sendgrid.com/v3/mail/send \
-            --header "Authorization: Bearer #sendGridAPIKey#" \
-            --header 'Content-Type: application/json' \
-            --data '{"personalizations": [{"to": [{"email": "bryan@archinet.net", "name": "Bryan Rice"},{"email": "josh@archinet.net", "name": "Josh Ginsburg"}]}],"from": {"email": "notifications@archinet.net", "name": "Archinet Notifications Team"},"reply_to": {"email": "notifications@archinet.net", "name": "Archinet Notifications Team"},"subject": "Sending with SendGrid API Test","content": [{"type": "text/plain", "value": "Testing Plain Text Email using sendgrid api with cURL"},{"type": "text/html", "value": "<strong>Testing HTML Email using sendgrid api with cURL. Test Link: <a href=\"https://projects.archinet.net\">Archinet</a></strong>"}]}'
-            */
-            //Use cfhttp to send email based on sendgrid api curl example above
+            // Validate required mailData structure
+            if (!structKeyExists(arguments.mailData, "personalizations") || !isArray(arguments.mailData.personalizations) || arrayLen(arguments.mailData.personalizations) == 0) {
+                throw(type="SendGrid.InvalidMailData", message="mailData must contain a personalizations array with at least one personalization");
+            }
+            
+            if (!structKeyExists(arguments.mailData, "from") || !structKeyExists(arguments.mailData.from, "email")) {
+                throw(type="SendGrid.InvalidMailData", message="mailData must contain a from object with an email address");
+            }
+            
+            // Convert mailData struct to JSON
+            var jsonBody = serializeJSON(arguments.mailData);
+            
+            // Make HTTP request to SendGrid API
             var result = {};
             cfhttp(
                 method = "POST",
@@ -38,248 +52,312 @@ component  displayname="SendMail" hint="CFC for Working SendGrid and Sending Mai
                 timeout = "30"
             ) {
                 cfhttpparam(type="header", name="Authorization", value="Bearer #sendGridAPIKey#");
-                cfhttpparam(type="header", name="Content-Type",  value="application/json");
-                cfhttpparam(
-                    type="body",
-                    value='{
-                        "personalizations":[{"to":[{"email":"#arguments.toEmail#","name":"#arguments.toName#"}]}],
-                        "from":{"email":"#arguments.fromEmail#","name":"#arguments.fromName#"},
-                        "reply_to":{"email":"#arguments.fromEmail#","name":"#arguments.fromName#"},
-                        "cc":{"email":"#arguments.ccEmail#","name":"#arguments.ccName#"},
-                        "bcc":{"email":"#arguments.bccEmail#","name":"#arguments.bccName#"},
-                        "subject":"#arguments.subject#",
-                        "content":[
-                            {"type":"text/plain","value":"#arguments.message#"},
-                            {"type":"text/html","value":"#arguments.htmlMessage#"}
-                        ]
-                    }'
-                );
-                {
-  "personalizations": [
-    {
-      "to": [
-        {
-          "email": "alex@example.com",
-          "name": "Alex"
-        },
-        {
-          "email": "bola@example.com",
-          "name": "Bola"
-        }
-      ],
-      "cc": [
-        {
-          "email": "charlie@example.com",
-          "name": "Charlie"
-        }
-      ],
-      "bcc": [
-        {
-          "email": "dana@example.com",
-          "name": "Dana"
-        }
-      ]
-    },
-    {
-      "from": {
-        "email": "sales@example.com",
-        "name": "Example Sales Team"
-      },
-      "to": [
-        {
-          "email": "ira@example.com",
-          "name": "Ira"
-        }
-      ],
-      "bcc": [
-        {
-          "email": "lee@example.com",
-          "name": "Lee"
-        }
-      ]
-    }
-  ],
-  "from": {
-    "email": "orders@example.com",
-    "name": "Example Order Confirmation"
-  },
-  "reply_to": {
-    "email": "customer_service@example.com",
-    "name": "Example Customer Service Team"
-  },
-  "subject": "Your Example Order Confirmation",
-  "content": [
-    {
-      "type": "text/html",
-      "value": "<p>Hello from Twilio SendGrid!</p><p>Sending with the email service trusted by developers and marketers for <strong>time-savings</strong>, <strong>scalability</strong>, and <strong>delivery expertise</strong>.</p><p>%open-track%</p>"
-    }
-  ],
-  "attachments": [
-    {
-      "content": "PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9ImVuIj4KCiAgICA8aGVhZD4KICAgICAgICA8bWV0YSBjaGFyc2V0PSJVVEYtOCI+CiAgICAgICAgPG1ldGEgaHR0cC1lcXVpdj0iWC1VQS1Db21wYXRpYmxlIiBjb250ZW50PSJJRT1lZGdlIj4KICAgICAgICA8bWV0YSBuYW1lPSJ2aWV3cG9ydCIgY29udGVudD0id2lkdGg9ZGV2aWNlLXdpZHRoLCBpbml0aWFsLXNjYWxlPTEuMCI+CiAgICAgICAgPHRpdGxlPkRvY3VtZW50PC90aXRsZT4KICAgIDwvaGVhZD4KCiAgICA8Ym9keT4KCiAgICA8L2JvZHk+Cgo8L2h0bWw+Cg==",
-      "filename": "index.html",
-      "type": "text/html",
-      "disposition": "attachment"
-    }
-  ],
-  "categories": [
-    "cake",
-    "pie",
-    "baking"
-  ],
-  "send_at": 1617260400,
-  "batch_id": "AsdFgHjklQweRTYuIopzXcVBNm0aSDfGHjklmZcVbNMqWert1znmOP2asDFjkl",
-  "asm": {
-    "group_id": 12345,
-    "groups_to_display": [
-      12345
-    ]
-  },
-  "ip_pool_name": "transactional email",
-  "mail_settings": {
-    "bypass_list_management": {
-      "enable": false
-    },
-    "footer": {
-      "enable": false
-    },
-    "sandbox_mode": {
-      "enable": false
-    }
-  },
-  "tracking_settings": {
-    "click_tracking": {
-      "enable": true,
-      "enable_text": false
-    },
-    "open_tracking": {
-      "enable": true,
-      "substitution_tag": "%open-track%"
-    },
-    "subscription_tracking": {
-      "enable": false
-    }
-  }
-}
+                cfhttpparam(type="header", name="Content-Type", value="application/json");
+                cfhttpparam(type="body", value="#jsonBody#");
             }
             
-            // Success check: SendGrid returns 202 Accepted with empty body on success
-            if (val(result.responseHeader["Status_Code"]) EQ 202) {
-                writeLog(text = "Email Sent", type = "information", file = "SendMailCFC");
-                // success
+            // Parse response
+            var statusCode = val(result.responseHeader["Status_Code"]);
+            
+            // Success: SendGrid returns 202 Accepted with empty body on success
+            if (statusCode == 202) {
+                writeLog(text="Email sent successfully via SendGrid", type="information", file="SendGrid");
+                return {
+                    "success": true,
+                    "statusCode": 202,
+                    "message": "Email accepted for delivery"
+                };
             } else {
-                writeLog(text = "Email Not Sent", type = "error", file = "SendMailCFC");
-                // log/debug: result.StatusCode, result.FileContent
+                // Error response
+                var errorMessage = "Email send failed with status code #statusCode#";
+                var errors = [];
+                
+                if (len(result.fileContent)) {
+                    try {
+                        var errorData = deserializeJSON(result.fileContent);
+                        if (structKeyExists(errorData, "errors") && isArray(errorData.errors)) {
+                            errors = errorData.errors;
+                            errorMessage = "Email send failed: " & arrayToList(errors.map(function(err) {
+                                return structKeyExists(err, "message") ? err.message : "Unknown error";
+                            }), "; ");
+                        }
+                    } catch (any jsonError) {
+                        // If we can't parse the error response, use the raw content
+                        errorMessage &= " - " & result.fileContent;
+                    }
+                }
+                
+                writeLog(text=errorMessage, type="error", file="SendGrid");
+                
+                return {
+                    "success": false,
+                    "statusCode": statusCode,
+                    "message": errorMessage,
+                    "errors": errors
+                };
             }
         } catch (any e) {
-            writeLog(text = e.message, type = "error", file = "SendMailCFC");
-            errorResponse = {
-                'status': "error",
-                'error' = {
-                    'code' = 500,
-                    'message' = e.message
-                }
+            var errorMessage = "SendGrid error: #e.message#";
+            if (structKeyExists(e, "detail") && len(e.detail)) {
+                errorMessage &= " - #e.detail#";
+            }
+            
+            writeLog(text=errorMessage, type="error", file="SendGrid");
+            
+            return {
+                "success": false,
+                "statusCode": 500,
+                "message": errorMessage,
+                "error": e
             };
-                return errorResponse;
+        }
+    } 
+    
+    /**
+     * Simple email sending helper function
+     * Provides a simplified interface for common email sending scenarios
+     * 
+     * @toEmail       [string]  - Email address to send to (required)
+     * @toName        [string]  - Name of recipient (optional)
+     * @fromEmail     [string]  - Email address to send from (required)
+     * @fromName      [string]  - Name of sender (optional)
+     * @ccEmail       [string]  - Email address to CC (optional)
+     * @ccName        [string]  - Name of CC recipient (optional)
+     * @bccEmail      [string]  - Email address to BCC (optional)
+     * @bccName       [string]  - Name of BCC recipient (optional)
+     * @subject       [string]  - Email subject (required)
+     * @textContent   [string]  - Plain text email content (optional)
+     * @htmlContent   [string]  - HTML email content (optional, at least one content type required)
+     * @replyToEmail  [string]  - Reply-to email address (optional)
+     * @replyToName   [string]  - Reply-to name (optional)
+     */
+    public struct function sendSimpleEmail(
+        required string toEmail,
+        string toName = "",
+        required string fromEmail,
+        string fromName = "",
+        string ccEmail = "",
+        string ccName = "",
+        string bccEmail = "",
+        string bccName = "",
+        required string subject,
+        string textContent = "",
+        string htmlContent = "",
+        string replyToEmail = "",
+        string replyToName = ""
+    ) output="false" {
+        
+        // Build personalizations array
+        var personalization = {
+            "to": [{"email": arguments.toEmail}],
+            "subject": arguments.subject
+        };
+        
+        // Add optional name for recipient
+        if (len(arguments.toName)) {
+            personalization.to[1]["name"] = arguments.toName;
         }
         
-        return {"success":true,"code":200,"status":"success"};
-    } 
+        // Add CC if provided
+        if (len(arguments.ccEmail)) {
+            personalization["cc"] = [{"email": arguments.ccEmail}];
+            if (len(arguments.ccName)) {
+                personalization.cc[1]["name"] = arguments.ccName;
+            }
+        }
+        
+        // Add BCC if provided
+        if (len(arguments.bccEmail)) {
+            personalization["bcc"] = [{"email": arguments.bccEmail}];
+            if (len(arguments.bccName)) {
+                personalization.bcc[1]["name"] = arguments.bccName;
+            }
+        }
+        
+        // Build from object
+        var from = {"email": arguments.fromEmail};
+        if (len(arguments.fromName)) {
+            from["name"] = arguments.fromName;
+        }
+        
+        // Build content array
+        var content = [];
+        if (len(arguments.textContent)) {
+            arrayAppend(content, {"type": "text/plain", "value": arguments.textContent});
+        }
+        if (len(arguments.htmlContent)) {
+            arrayAppend(content, {"type": "text/html", "value": arguments.htmlContent});
+        }
+        
+        // Validate at least one content type is provided
+        if (arrayLen(content) == 0) {
+            return {
+                "success": false,
+                "statusCode": 400,
+                "message": "At least one content type (textContent or htmlContent) must be provided"
+            };
+        }
+        
+        // Build mail data structure
+        var mailData = {
+            "personalizations": [personalization],
+            "from": from,
+            "content": content
+        };
+        
+        // Add reply-to if provided
+        if (len(arguments.replyToEmail)) {
+            mailData["reply_to"] = {"email": arguments.replyToEmail};
+            if (len(arguments.replyToName)) {
+                mailData.reply_to["name"] = arguments.replyToName;
+            }
+        }
+        
+        // Use main sendMail function
+        return sendMail(mailData);
+    }
 
     /**
-     * Get data for a table
+     * Create a batch ID for grouping mail sends
+     * Batch IDs can be used to schedule, pause, or cancel email sends
      * 
-     * @tableName     [string]  - Name of table to get data for
-     * @project_id    [numeric] - Project ID
+     * @return struct with batch_id on success, or error information
      */
-    public query function getTableData(required string tableName="projects_users_association_tbl", required numeric project_id) output="false" returnformat="json" {
-            //https://projects.archinet.net/net/archinet/DataTables.cfc?method=getTableData&project_id=15338&tableName=projects_users_association_tbl&returnFormat=json
-        var sql = "SELECT
-                u.id AS user_id,
-                c.client_name,
-                u.user_first_name,
-                u.user_last_name,
-                u.id AS download_required,
-                u.id AS response_required,
-                u.user_email,
-                u.client_id,
-                u.avatar_url             
-                FROM #arguments.tableName# pu
-                INNER JOIN project_users_tbl u ON pu.user_id = u.id
-                INNER JOIN clients_tbl c ON u.client_id = c.id
-                INNER JOIN project_users_tbl cu ON u.user_created_by_user_id = cu.id
-                INNER JOIN clients_tbl cc ON cu.client_id = cc.id              
-                WHERE pu.project_id = :project_id";
-        var qparams = {};
-        qparams.project_id = { "value"=arguments.project_id, "cfsqltype"="cf_sql_integer" };
-        sql = sql & " ORDER BY client_name, client_id, user_last_name, user_first_name, user_id;";
-        
-        var options = { "datasource"=APPLICATION.DSN };
+    public struct function createBatchId() output="false" {
         try {
-            //Try to execute query
-            var qData = queryExecute(sql, qparams, options);
-        }
-        catch (any e) {
-            writeLog(text = e.message, type = "error", file = "ArchinetUploadFilesAPI");
-            var errorResponse = {
-                'status': "error",
-                'error' = {
-                    'code' = 500,
-                    'message' = e.message
-                }
-            };
-                return errorResponse;
-        }
-            
-        return qData;
-    } 
-    /**
-     * Get data for a table
-     * 
-     * @tableName     [string]  - Name of table to get data for
-     * @project_id    [numeric] - Project ID
-     */
-    public any function getDocumentsData(required string tableName="test_documents_tbl", required numeric project_id) output="false" returnformat="json" {
-     //test_documents_tbl
-        //https://projects.archinet.net/net/archinet/DataTables.cfc?method=getTableData&project_id=15338&tableName=projects_users_association_tbl&returnFormat=json
-    var sql = "SELECT 
-            pu.*
-            /* u.id AS user_id,
-            c.client_name,
-            u.user_first_name,
-            u.user_last_name,
-            u.id AS download_required,
-            u.id AS response_required,
-            u.user_email,
-            u.client_id,
-            u.avatar_url   */           
-            FROM #arguments.tableName# pu
-            /* INNER JOIN project_users_tbl u ON pu.user_id = u.id
-            INNER JOIN clients_tbl c ON u.client_id = c.id
-            INNER JOIN project_users_tbl cu ON u.user_created_by_user_id = cu.id
-            INNER JOIN clients_tbl cc ON cu.client_id = cc.id    */           
-            WHERE pu.project_id = :project_id";
-    var qparams = {};
-    qparams.project_id = { "value"=arguments.project_id, "cfsqltype"="cf_sql_integer" };
-    sql = sql & " ORDER BY project_id;";
-    
-    var options = { "datasource"=APPLICATION.DSN };
-    try {
-        //Try to execute query
-        var qData = queryExecute(sql, qparams, options);
-    }
-    catch (any e) {
-        writeLog(text = e.message, type = "error", file = "ArchinetUploadFilesAPI");
-        var errorResponse = {
-            'status': "error",
-            'error' = {
-                'code' = 500,
-                'message' = e.message
+            // Get SendGrid API key from environment variable
+            var sendGridAPIKey = "";
+            if (structKeyExists(server, "system") && structKeyExists(server.system, "environment") && structKeyExists(server.system.environment, "sendgrid_api_key")) {
+                sendGridAPIKey = server.system.environment.sendgrid_api_key;
+            } else {
+                throw(type="SendGrid.MissingAPIKey", message="SendGrid API key not found in server.system.environment.sendgrid_api_key");
             }
-        };
-            return errorResponse;
+            
+            // Make HTTP request to SendGrid API
+            var result = {};
+            cfhttp(
+                method = "POST",
+                url    = "https://api.sendgrid.com/v3/mail/batch",
+                result = "result",
+                timeout = "30"
+            ) {
+                cfhttpparam(type="header", name="Authorization", value="Bearer #sendGridAPIKey#");
+                cfhttpparam(type="header", name="Content-Type", value="application/json");
+            }
+            
+            // Parse response
+            var statusCode = val(result.responseHeader["Status_Code"]);
+            
+            if (statusCode == 201) {
+                var responseData = deserializeJSON(result.fileContent);
+                writeLog(text="Batch ID created successfully: #responseData.batch_id#", type="information", file="SendGrid");
+                return {
+                    "success": true,
+                    "statusCode": 201,
+                    "batch_id": responseData.batch_id
+                };
+            } else {
+                var errorMessage = "Batch ID creation failed with status code #statusCode#";
+                if (len(result.fileContent)) {
+                    errorMessage &= " - " & result.fileContent;
+                }
+                
+                writeLog(text=errorMessage, type="error", file="SendGrid");
+                
+                return {
+                    "success": false,
+                    "statusCode": statusCode,
+                    "message": errorMessage
+                };
+            }
+        } catch (any e) {
+            var errorMessage = "SendGrid batch ID creation error: #e.message#";
+            if (structKeyExists(e, "detail") && len(e.detail)) {
+                errorMessage &= " - #e.detail#";
+            }
+            
+            writeLog(text=errorMessage, type="error", file="SendGrid");
+            
+            return {
+                "success": false,
+                "statusCode": 500,
+                "message": errorMessage,
+                "error": e
+            };
+        }
     }
-        
-    return qData;
-} 
+
+    /**
+     * Validate a batch ID
+     * 
+     * @batchId  [string]  - The batch ID to validate
+     * @return struct with validation result
+     */
+    public struct function validateBatchId(required string batchId) output="false" {
+        try {
+            // Get SendGrid API key from environment variable
+            var sendGridAPIKey = "";
+            if (structKeyExists(server, "system") && structKeyExists(server.system, "environment") && structKeyExists(server.system.environment, "sendgrid_api_key")) {
+                sendGridAPIKey = server.system.environment.sendgrid_api_key;
+            } else {
+                throw(type="SendGrid.MissingAPIKey", message="SendGrid API key not found in server.system.environment.sendgrid_api_key");
+            }
+            
+            // Make HTTP request to SendGrid API
+            var result = {};
+            cfhttp(
+                method = "GET",
+                url    = "https://api.sendgrid.com/v3/mail/batch/#arguments.batchId#",
+                result = "result",
+                timeout = "30"
+            ) {
+                cfhttpparam(type="header", name="Authorization", value="Bearer #sendGridAPIKey#");
+            }
+            
+            // Parse response
+            var statusCode = val(result.responseHeader["Status_Code"]);
+            
+            if (statusCode == 200) {
+                var responseData = deserializeJSON(result.fileContent);
+                return {
+                    "success": true,
+                    "statusCode": 200,
+                    "valid": true,
+                    "batch_id": responseData.batch_id
+                };
+            } else if (statusCode == 400) {
+                return {
+                    "success": false,
+                    "statusCode": 400,
+                    "valid": false,
+                    "message": "Invalid batch ID"
+                };
+            } else {
+                var errorMessage = "Batch ID validation failed with status code #statusCode#";
+                if (len(result.fileContent)) {
+                    errorMessage &= " - " & result.fileContent;
+                }
+                
+                return {
+                    "success": false,
+                    "statusCode": statusCode,
+                    "message": errorMessage
+                };
+            }
+        } catch (any e) {
+            var errorMessage = "SendGrid batch ID validation error: #e.message#";
+            if (structKeyExists(e, "detail") && len(e.detail)) {
+                errorMessage &= " - #e.detail#";
+            }
+            
+            writeLog(text=errorMessage, type="error", file="SendGrid");
+            
+            return {
+                "success": false,
+                "statusCode": 500,
+                "message": errorMessage,
+                "error": e
+            };
+        }
+    }
 }
